@@ -1,0 +1,50 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+        extensions: mbstring, intl, gd, xml, dom, json, fileinfo, curl, zip, iconv
+        
+    - name: Validate composer.json and composer.lock
+      run: composer validate --strict
+      if: hashFiles('composer.json') != ''
+      
+    - name: Cache Composer packages
+      id: composer-cache
+      uses: actions/cache@v3
+      with:
+        path: vendor
+        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-php-
+          
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress
+      if: hashFiles('composer.json') != ''
+      
+    - name: Deploy to Hostinger
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.HOSTINGER_HOST }}
+        username: ${{ secrets.HOSTINGER_USERNAME }}
+        password: ${{ secrets.HOSTINGER_PASSWORD }}
+        port: 22
+        script: |
+          cd public_html
+          git pull origin main
+          # Add any additional deployment commands here
